@@ -11,14 +11,11 @@ import '../bloc/home_event.dart';
 import '../bloc/home_state.dart';
 import '../widgets/home_app_bar.dart';
 import '../widgets/profile_card.dart';
+import '../widgets/profile_detail_content.dart';
 import '../widgets/swipeable_profile_card.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({
-    super.key,
-    this.onOpenDrawer,
-    this.onOpenNotifications,
-  });
+  const HomePage({super.key, this.onOpenDrawer, this.onOpenNotifications});
 
   final VoidCallback? onOpenDrawer;
   final VoidCallback? onOpenNotifications;
@@ -51,10 +48,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _onRefresh() async {
     final bloc = context.read<HomeBloc>();
+    // Subscribe before dispatching so we don't miss the settled state.
+    final settled = bloc.stream.firstWhere((s) => !s.isRefreshing);
     bloc.add(const HomeRefreshed());
-    await bloc.stream.firstWhere(
-      (s) => !s.isRefreshing && s.status != HomeStatus.loading,
-    );
+    await settled;
   }
 
   void _showSnack(String message) {
@@ -121,7 +118,8 @@ class _HomePageState extends State<HomePage> {
                   return const LoadingView();
                 case HomeStatus.failure:
                   return ErrorView(
-                    message: state.errorMessage ??
+                    message:
+                        state.errorMessage ??
                         'Unable to load profiles right now.',
                     onRetry: () =>
                         context.read<HomeBloc>().add(const HomeRetried()),
@@ -132,37 +130,44 @@ class _HomePageState extends State<HomePage> {
                   }
                   return RefreshIndicator(
                     color: AppColors.primary,
-                    displacement: 40,
-                    notificationPredicate: (notification) =>
-                        notification.depth == 0,
+                    backgroundColor: Colors.white,
+                    displacement: 48,
+                    strokeWidth: 2.5,
+                    // Nested CustomScrollView inside the card is depth > 0.
+                    // Only allow pull-to-refresh when that scroll is at the top.
+                    notificationPredicate: (notification) {
+                      return notification.metrics.axis == Axis.vertical &&
+                          notification.metrics.pixels <= 0;
+                    },
                     onRefresh: _onRefresh,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
-                      child: _ProfileFeed(
-                        state: state,
-                        pageController: _pageController,
-                        page: _page,
-                        onSwiped: _onSwiped,
-                        onUndo: () {
-                          if (state.canUndo) {
-                            context
-                                .read<HomeBloc>()
-                                .add(const HomeSwipeUndone());
-                          } else {
-                            context
-                                .read<HomeBloc>()
-                                .add(const HomeRefreshed());
-                          }
-                        },
-                        onMore: (name) => _showMoreSheet(name),
-                        onRose: (user) => showComplimentSheet(
-                          context: context,
-                          user: user,
-                        ),
-                        onComplimentPrompt: (user) => showComplimentSheet(
-                          context: context,
-                          user: user,
-                          targetLabel: 'Prompt',
+                      child: ColoredBox(
+                        color: AppColors.surfaceCream,
+                        child: _ProfileFeed(
+                          state: state,
+                          pageController: _pageController,
+                          page: _page,
+                          onSwiped: _onSwiped,
+                          onUndo: () {
+                            if (state.canUndo) {
+                              context.read<HomeBloc>().add(
+                                const HomeSwipeUndone(),
+                              );
+                            } else {
+                              context.read<HomeBloc>().add(
+                                const HomeRefreshed(),
+                              );
+                            }
+                          },
+                          onMore: (name) => _showMoreSheet(name),
+                          onRose: (user) =>
+                              showComplimentSheet(context: context, user: user),
+                          onComplimentPrompt: (user) => showComplimentSheet(
+                            context: context,
+                            user: user,
+                            targetLabel: 'Prompt',
+                          ),
                         ),
                       ),
                     ),
@@ -270,7 +275,9 @@ class _ProfileFeed extends StatelessWidget {
       controller: pageController,
       scrollDirection: Axis.vertical,
       allowImplicitScrolling: true,
-      physics: const BouncingScrollPhysics(),
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
       itemCount: state.users.length,
       onPageChanged: (index) {
         context.read<HomeBloc>().add(HomePageChanged(index));
@@ -279,28 +286,24 @@ class _ProfileFeed extends StatelessWidget {
         final user = state.users[index];
         final distance = (page - index).abs();
         final t = Curves.easeOutCubic.transform(distance.clamp(0.0, 1.0));
-        // Keep the resting card full-bleed (matches screenshot).
-        // Only animate neighbors during page transitions.
-        final scale = 1 - (t * 0.04);
-        final opacity = 1 - (t * 0.25);
+        final isTopCard = distance < 0.5;
 
-        final isTopCard = (page - index).abs() < 0.5;
+        final upcoming = <UserEntity>[
+          if (index + 2 < state.users.length) state.users[index + 2],
+        ];
 
         return Opacity(
-          opacity: opacity.clamp(0.7, 1.0),
-          child: Transform.scale(
-            scale: scale.clamp(0.96, 1.0),
-            alignment: Alignment.center,
-            child: _SwipeableTopCard(
-              key: ValueKey(user.id),
-              user: user,
-              isTopCard: isTopCard,
-              onSwiped: (direction) => onSwiped(direction, user),
-              onUndo: onUndo,
-              onMore: () => onMore(user.displayName),
-              onRose: () => onRose(user),
-              onSectionRose: () => (onComplimentPrompt ?? onRose)(user),
-            ),
+          opacity: (1 - t * 0.2).clamp(0.75, 1.0),
+          child: _DeckProfilePage(
+            key: ValueKey(user.id),
+            user: user,
+            upcoming: upcoming,
+            isTopCard: isTopCard,
+            onSwiped: (direction) => onSwiped(direction, user),
+            onUndo: onUndo,
+            onMore: () => onMore(user.displayName),
+            onRose: () => onRose(user),
+            onSectionRose: () => (onComplimentPrompt ?? onRose)(user),
           ),
         );
       },
@@ -308,11 +311,13 @@ class _ProfileFeed extends StatelessWidget {
   }
 }
 
-/// Swipe is allowed only on the front card while its hero is unscrolled.
-class _SwipeableTopCard extends StatefulWidget {
-  const _SwipeableTopCard({
+/// Card stack like the screenshot: front card on top, next cards tucked
+/// underneath (offset down), About panel scrolls below the stack.
+class _DeckProfilePage extends StatefulWidget {
+  const _DeckProfilePage({
     super.key,
     required this.user,
+    required this.upcoming,
     required this.isTopCard,
     required this.onSwiped,
     required this.onUndo,
@@ -322,6 +327,7 @@ class _SwipeableTopCard extends StatefulWidget {
   });
 
   final UserEntity user;
+  final List<UserEntity> upcoming;
   final bool isTopCard;
   final void Function(SwipeDirection direction) onSwiped;
   final VoidCallback onUndo;
@@ -330,28 +336,143 @@ class _SwipeableTopCard extends StatefulWidget {
   final VoidCallback? onSectionRose;
 
   @override
-  State<_SwipeableTopCard> createState() => _SwipeableTopCardState();
+  State<_DeckProfilePage> createState() => _DeckProfilePageState();
 }
 
-class _SwipeableTopCardState extends State<_SwipeableTopCard> {
-  bool _detailsOpen = false;
+class _DeckProfilePageState extends State<_DeckProfilePage> {
+  late final ScrollController _scrollController;
+  double _offset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final next = _scrollController.offset;
+    if ((next - _offset).abs() < 0.5) return;
+    setState(() => _offset = next);
+  }
+
+  bool get _detailsOpen => _offset > 16;
 
   @override
   Widget build(BuildContext context) {
-    return SwipeableProfileCard(
-      enabled: widget.isTopCard && !_detailsOpen,
-      onSwiped: widget.onSwiped,
-      child: ProfileCard(
-        user: widget.user,
-        onUndo: widget.onUndo,
-        onMore: widget.onMore,
-        onRose: widget.onRose,
-        onSectionRose: widget.onSectionRose,
-        onScrollProgress: (progress) {
-          final open = progress > 0.03;
-          if (open == _detailsOpen) return;
-          setState(() => _detailsOpen = open);
-        },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardHeight = constraints.maxHeight;
+        // Front + up to 2 behind = 3-card stack. Keep peek modest.
+        final peekT = Curves.easeOutCubic.transform(
+          (_offset / 80).clamp(0.0, 1.0),
+        );
+        final peekStep = 14.0 + 72.0 * peekT;
+        final behindCount = widget.upcoming.length.clamp(0, 2);
+        final peekExtent = peekStep * behindCount;
+        final stackHeight = cardHeight + peekExtent;
+
+        return CustomScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          slivers: [
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: stackHeight,
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    for (var i = widget.upcoming.length - 1; i >= 0; i--)
+                      _UpcomingCardLayer(
+                        user: widget.upcoming[i],
+                        depth: i + 1,
+                        cardHeight: cardHeight,
+                        peekStep: peekStep,
+                      ),
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: cardHeight,
+                      child: SwipeableProfileCard(
+                        enabled: widget.isTopCard && !_detailsOpen,
+                        onSwiped: widget.onSwiped,
+                        child: ProfileCard(
+                          user: widget.user,
+                          enableDetails: false,
+                          onUndo: widget.onUndo,
+                          onMore: widget.onMore,
+                          onRose: widget.onRose,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceCream,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  child: ProfileDetailContent(
+                    user: widget.user,
+                    onRose: widget.onSectionRose ?? widget.onRose,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _UpcomingCardLayer extends StatelessWidget {
+  const _UpcomingCardLayer({
+    required this.user,
+    required this.depth,
+    required this.cardHeight,
+    required this.peekStep,
+  });
+
+  final UserEntity user;
+  final int depth;
+  final double cardHeight;
+  final double peekStep;
+
+  @override
+  Widget build(BuildContext context) {
+    final dy = peekStep * depth;
+    final inset = 5.0 * depth;
+
+    return Positioned(
+      top: dy,
+      left: inset,
+      right: inset,
+      height: cardHeight,
+      child: IgnorePointer(
+        child: Transform.scale(
+          scale: (1.0 - 0.03 * depth).clamp(0.94, 1.0),
+          alignment: Alignment.topCenter,
+          child: ProfileCard(user: user, enableDetails: false),
+        ),
       ),
     );
   }
@@ -384,10 +505,7 @@ class _EmptyDeck extends StatelessWidget {
                   SizedBox(height: 12),
                   Text(
                     'You’re all caught up',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                   SizedBox(height: 6),
                   Text(
@@ -439,7 +557,10 @@ class _FilterSheet extends StatelessWidget {
             const SizedBox(height: 20),
             const _FilterRow(label: 'Age', value: '21 – 35'),
             const _FilterRow(label: 'Distance', value: 'Within 25 km'),
-            const _FilterRow(label: 'Looking for', value: 'Serious relationship'),
+            const _FilterRow(
+              label: 'Looking for',
+              value: 'Serious relationship',
+            ),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -480,10 +601,7 @@ class _FilterRow extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          Text(
-            value,
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
+          Text(value, style: const TextStyle(color: AppColors.textSecondary)),
         ],
       ),
     );

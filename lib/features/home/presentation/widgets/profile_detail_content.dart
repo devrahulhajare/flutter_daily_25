@@ -29,26 +29,31 @@ class ProfileDetailContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                StatusChip(
-                  label: '${user.matchPercent}% Match',
-                  dotColor: AppColors.match,
-                  style: StatusChipStyle.light,
-                ),
-                StatusChip(
-                  label: '${user.trustPercent}% Trust',
-                  dotColor: AppColors.trust,
-                  style: StatusChipStyle.light,
-                ),
-                StatusChip(
-                  label: '${user.replyTime} Replies',
-                  dotColor: AppColors.reply,
-                  style: StatusChipStyle.light,
-                ),
-              ],
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StatusChip(
+                    label: '${user.matchPercent}% Match',
+                    dotColor: AppColors.match,
+                    style: StatusChipStyle.light,
+                  ),
+                  const SizedBox(width: 6),
+                  StatusChip(
+                    label: '${user.trustPercent}% Trust',
+                    dotColor: AppColors.trust,
+                    style: StatusChipStyle.light,
+                  ),
+                  const SizedBox(width: 6),
+                  StatusChip(
+                    label: '${user.replyTime} Replies',
+                    dotColor: AppColors.reply,
+                    style: StatusChipStyle.light,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 22),
             const _SectionLabel('ABOUT'),

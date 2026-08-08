@@ -3,10 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../admirers/presentation/pages/admirers_page.dart';
+import '../../../../core/widgets/coming_soon_page.dart';
 import '../../../chat/presentation/pages/chat_page.dart';
 import '../../../date_now/presentation/pages/date_now_page.dart';
-import '../../../events/presentation/pages/events_page.dart';
 import '../../../home/presentation/bloc/home_bloc.dart';
 import '../../../home/presentation/bloc/home_event.dart';
 import '../../../home/presentation/pages/home_page.dart';
@@ -50,9 +49,17 @@ class _MainShellState extends State<MainShell> {
                 onOpenNotifications: _openNotifications,
               ),
               const DateNowPage(),
-              const AdmirersPage(),
+              const ComingSoonPage(
+                title: 'Admirers',
+                icon: Icons.favorite_border_rounded,
+                message: 'See who likes you — launching soon.',
+              ),
               const ChatPage(),
-              const EventsPage(),
+              const ComingSoonPage(
+                title: 'Events',
+                icon: Icons.calendar_today_outlined,
+                message: 'Local meetups and date nights — launching soon.',
+              ),
             ],
           ),
         ),

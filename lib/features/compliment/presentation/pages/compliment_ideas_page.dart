@@ -76,10 +76,12 @@ class _ComplimentIdeasPageState extends State<ComplimentIdeasPage> {
                                 ),
                               ],
                             ),
-                            child: const Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              color: AppColors.textPrimary,
-                              size: 28,
+                            alignment: Alignment.center,
+                            child: Image.asset(
+                              'assets/icons/chat.png',
+                              width: 28,
+                              height: 28,
+                              fit: BoxFit.contain,
                             ),
                           ),
                           const SizedBox(height: 14),

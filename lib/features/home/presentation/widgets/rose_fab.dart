@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -16,7 +14,7 @@ class RoseFab extends StatefulWidget {
 
   const RoseFab.mini({super.key, this.onTap})
       : size = 36,
-        iconSize = 16,
+        iconSize = 18,
         showGlow = false;
 
   final VoidCallback? onTap;
@@ -48,6 +46,15 @@ class _RoseFabState extends State<RoseFab> with SingleTickerProviderStateMixin {
     _controller.dispose();
     super.dispose();
   }
+
+  Widget get _roseEmoji => Text(
+        '🌹',
+        style: TextStyle(
+          fontSize: widget.iconSize.toDouble(),
+          height: 1,
+        ),
+        textAlign: TextAlign.center,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -104,86 +111,20 @@ class _RoseFabState extends State<RoseFab> with SingleTickerProviderStateMixin {
               ],
       ),
       alignment: Alignment.center,
-      child: _RoseIcon(size: widget.iconSize),
+      child: _roseEmoji,
     );
     if (innerOnly) {
       return Container(
+        width: widget.size,
+        height: widget.size,
         decoration: const BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
-        child: _RoseIcon(size: widget.iconSize),
+        child: _roseEmoji,
       );
     }
     return button;
   }
-}
-
-class _RoseIcon extends StatelessWidget {
-  const _RoseIcon({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: Size.square(size),
-      painter: _RosePainter(),
-    );
-  }
-}
-
-class _RosePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2 + 1;
-    final petalPaint = Paint()
-      ..color = const Color(0xFFE5394B)
-      ..style = PaintingStyle.fill;
-
-    final darkPetal = Paint()
-      ..color = const Color(0xFFC62828)
-      ..style = PaintingStyle.fill;
-
-    // Outer petals
-    for (var i = 0; i < 6; i++) {
-      final angle = (i * math.pi / 3) - math.pi / 2;
-      final px = cx + math.cos(angle) * size.width * 0.22;
-      final py = cy + math.sin(angle) * size.height * 0.18;
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(px, py),
-          width: size.width * 0.38,
-          height: size.height * 0.42,
-        ),
-        i.isEven ? petalPaint : darkPetal,
-      );
-    }
-
-    // Inner petals
-    final inner = Paint()..color = const Color(0xFFFF6B7A);
-    canvas.drawCircle(Offset(cx, cy), size.width * 0.18, inner);
-    canvas.drawCircle(
-      Offset(cx, cy),
-      size.width * 0.08,
-      Paint()..color = const Color(0xFFB71C1C),
-    );
-
-    // Stem hint
-    final stem = Paint()
-      ..color = const Color(0xFF2E7D32)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(cx, cy + size.height * 0.22),
-      Offset(cx - 1, cy + size.height * 0.42),
-      stem,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
