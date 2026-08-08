@@ -108,7 +108,7 @@ class _ProfileCardState extends State<ProfileCard> {
                 },
                 child: CustomScrollView(
                   controller: _controller,
-                  physics: const ClampingScrollPhysics(
+                  physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics(),
                   ),
                   slivers: [

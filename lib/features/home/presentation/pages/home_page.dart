@@ -51,10 +51,10 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _onRefresh() async {
     final bloc = context.read<HomeBloc>();
+    // Subscribe before dispatching so we don't miss the settled state.
+    final settled = bloc.stream.firstWhere((s) => !s.isRefreshing);
     bloc.add(const HomeRefreshed());
-    await bloc.stream.firstWhere(
-      (s) => !s.isRefreshing && s.status != HomeStatus.loading,
-    );
+    await settled;
   }
 
   void _showSnack(String message) {
@@ -132,9 +132,15 @@ class _HomePageState extends State<HomePage> {
                   }
                   return RefreshIndicator(
                     color: AppColors.primary,
-                    displacement: 40,
-                    notificationPredicate: (notification) =>
-                        notification.depth == 0,
+                    backgroundColor: Colors.white,
+                    displacement: 48,
+                    strokeWidth: 2.5,
+                    // Nested CustomScrollView inside the card is depth > 0.
+                    // Only allow pull-to-refresh when that scroll is at the top.
+                    notificationPredicate: (notification) {
+                      return notification.metrics.axis == Axis.vertical &&
+                          notification.metrics.pixels <= 0;
+                    },
                     onRefresh: _onRefresh,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
@@ -270,7 +276,9 @@ class _ProfileFeed extends StatelessWidget {
       controller: pageController,
       scrollDirection: Axis.vertical,
       allowImplicitScrolling: true,
-      physics: const BouncingScrollPhysics(),
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
       itemCount: state.users.length,
       onPageChanged: (index) {
         context.read<HomeBloc>().add(HomePageChanged(index));
