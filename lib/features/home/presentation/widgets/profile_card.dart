@@ -119,7 +119,7 @@ class _ProfileCardState extends State<ProfileCard> {
                           scale: 1 - (_progress * 0.04),
                           alignment: Alignment.topCenter,
                           child: Opacity(
-                            opacity: lerpDouble(1, 0.88, _progress)!,
+                            opacity: lerpDouble(1, 0.92, _progress)!,
                             child: _HeroPhoto(
                               user: widget.user,
                               height: heroHeight,
@@ -360,23 +360,28 @@ class _ProfileSummary extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  StatusChip(
-                    label: '${user.matchPercent}% Match',
-                    dotColor: AppColors.match,
-                  ),
-                  StatusChip(
-                    label: '${user.trustPercent}% Trust',
-                    dotColor: AppColors.trust,
-                  ),
-                  StatusChip(
-                    label: '${user.replyTime} Reply',
-                    dotColor: AppColors.reply,
-                  ),
-                ],
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StatusChip(
+                      label: '${user.matchPercent}% Match',
+                      dotColor: AppColors.match,
+                    ),
+                    const SizedBox(width: 6),
+                    StatusChip(
+                      label: '${user.trustPercent}% Trust',
+                      dotColor: AppColors.trust,
+                    ),
+                    const SizedBox(width: 6),
+                    StatusChip(
+                      label: '${user.replyTime} Reply',
+                      dotColor: AppColors.reply,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
               Row(
